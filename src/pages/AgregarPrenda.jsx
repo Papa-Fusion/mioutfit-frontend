@@ -2,40 +2,89 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { apiUrl } from '../config/api';  // ← único cambio de import
+import { apiUrl } from '../config/api';
+
+// Marcas sugeridas para el datalist
+const MARCAS_SUGERIDAS = [
+  'Adidas', 'Calvin Klein', 'Champion', 'Diesel', 'Fila',
+  'Gap', 'Guess', 'H&M', 'Lacoste', 'Levi\'s',
+  'Louis Vuitton', 'Mango', 'Nike', 'Polo Ralph Lauren',
+  'Prada', 'Pull & Bear', 'Puma', 'Reebok', 'Reserved',
+  'Stradivarius', 'Tommy Hilfiger', 'Under Armour',
+  'Uniqlo', 'Versace', 'Zara', 'Sin marca'
+];
+
+const CATEGORIAS_GLOBALES = [
+  'Casual', 'Formal', 'Elegante', 'Deportivo', 'Playero',
+  'Urbano', 'Bohemio', 'Ejecutivo', 'Noche / Fiesta'
+];
 
 const TIPOS = {
-  'Camiseta / Camisa': {
-    categorias: ['Casual', 'Formal', 'Elegante'],
-    tallas: ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+  // ── SUPERIORES ──────────────────────────────────────────────
+  'Camiseta / Top': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
   },
-  'Pantalón / Jean': {
-    categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo'],
-    tallas: ['28', '30', '32', '34', '36', '38', '40']
+  'Camisa / Blusa': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
   },
-  'Zapatos / Calzado': {
-    categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo', 'Playero'],
-    tallas: ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44']
-  },
-  'Vestido / Falda': {
-    categorias: ['Casual', 'Formal', 'Elegante', 'Playero'],
-    tallas: ['XS', 'S', 'M', 'L', 'XL']
+  'Suéter / Knitwear': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
   },
   'Chaqueta / Abrigo': {
-    categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo'],
-    tallas: ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
   },
-  'Accesorio': {
-    categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo'],
+  // ── INFERIORES ──────────────────────────────────────────────
+  'Pantalón / Jean': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['24', '26', '28', '30', '32', '34', '36', '38', '40', '42']
+  },
+  'Short / Bermuda': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['24', '26', '28', '30', '32', '34', '36', '38', '40', '42']
+  },
+  'Falda': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
+  },
+  // ── CUERPO ENTERO ───────────────────────────────────────────
+  'Vestido': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
+  },
+  'Enterizo / Jumpsuit': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
+  },
+  // ── CALZADO ─────────────────────────────────────────────────
+  'Zapatos / Calzado': {
+    categorias: CATEGORIAS_GLOBALES,
+    tallas: ['33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45']
+  },
+  // ── COMPLEMENTOS ────────────────────────────────────────────
+  'Accesorios / Bolsos': {
+    categorias: CATEGORIAS_GLOBALES,
     tallas: ['Talla única']
   }
+};
+
+// Agrupación visual para el select
+const GRUPOS = {
+  'SUPERIORES': ['Camiseta / Top', 'Camisa / Blusa', 'Suéter / Knitwear', 'Chaqueta / Abrigo'],
+  'INFERIORES': ['Pantalón / Jean', 'Short / Bermuda', 'Falda'],
+  'CUERPO ENTERO': ['Vestido', 'Enterizo / Jumpsuit'],
+  'CALZADO': ['Zapatos / Calzado'],
+  'COMPLEMENTOS': ['Accesorios / Bolsos']
 };
 
 function AgregarPrenda() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [prenda, setPrenda] = useState({
-    nombre: '', tipo: '', categoria: '', color: '', talla: '', imagenUrl: ''
+    nombre: '', tipo: '', categoria: '', color: '', talla: '', imagenUrl: '', marca: ''
   });
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -64,7 +113,7 @@ function AgregarPrenda() {
     try {
       const formData = new FormData();
       formData.append('file', archivo);
-      const res = await fetch(apiUrl('/api/imagen/procesar'), {  // ← antes: 'http://localhost:8080/api/imagen/procesar'
+      const res = await fetch(apiUrl('/api/imagen/procesar'), {
         method: 'POST',
         body: formData
       });
@@ -87,7 +136,7 @@ function AgregarPrenda() {
     setCargando(true);
     setError('');
     try {
-      const response = await fetch(apiUrl('/api/prendas'), {  // ← antes: 'http://localhost:8080/api/prendas'
+      const response = await fetch(apiUrl('/api/prendas'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,19 +168,29 @@ function AgregarPrenda() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
+
+          {/* Fila 1: Tipo + Nombre */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Tipo de prenda</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Tipo de prenda
+              </label>
               <select
                 name="tipo" value={prenda.tipo} onChange={handleChange} required
                 className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black bg-transparent transition-colors"
               >
                 <option value="">Selecciona el tipo</option>
-                {Object.keys(TIPOS).map(t => <option key={t} value={t}>{t}</option>)}
+                {Object.entries(GRUPOS).map(([grupo, tipos]) => (
+                  <optgroup key={grupo} label={grupo}>
+                    {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Nombre</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Nombre
+              </label>
               <input
                 type="text" name="nombre" value={prenda.nombre} onChange={handleChange} required
                 placeholder="Ej. Camiseta básica de algodón"
@@ -140,9 +199,12 @@ function AgregarPrenda() {
             </div>
           </div>
 
+          {/* Fila 2: Categoría + Color + Talla */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Estilo / Categoría</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Estilo / Categoría
+              </label>
               <select
                 name="categoria" value={prenda.categoria} onChange={handleChange} required disabled={!tipoSeleccionado}
                 className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black disabled:opacity-50 disabled:bg-gray-50 bg-transparent transition-colors"
@@ -152,14 +214,19 @@ function AgregarPrenda() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Color</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Color
+              </label>
               <input
-                type="text" name="color" value={prenda.color} onChange={handleChange} required placeholder="Ej. Blanco"
+                type="text" name="color" value={prenda.color} onChange={handleChange} required
+                placeholder="Ej. Blanco"
                 className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black bg-transparent transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Talla</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+                Talla
+              </label>
               <select
                 name="talla" value={prenda.talla} onChange={handleChange} required disabled={!tipoSeleccionado}
                 className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black disabled:opacity-50 disabled:bg-gray-50 bg-transparent transition-colors"
@@ -170,8 +237,34 @@ function AgregarPrenda() {
             </div>
           </div>
 
+          {/* Fila 3: Marca con datalist */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+              Marca <span className="text-gray-400 normal-case tracking-normal font-normal">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              name="marca"
+              value={prenda.marca}
+              onChange={handleChange}
+              placeholder="Ej. Nike, Zara, Sin marca..."
+              list="marcas-list"
+              autoComplete="off"
+              className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black bg-transparent transition-colors"
+            />
+            <datalist id="marcas-list">
+              {MARCAS_SUGERIDAS.map(m => <option key={m} value={m} />)}
+            </datalist>
+            <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">
+              Escribe o selecciona de las sugerencias
+            </p>
+          </div>
+
+          {/* Fotografía */}
           <div className="pt-4">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Fotografía de la pieza</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
+              Fotografía de la pieza
+            </label>
             <label className="flex flex-col items-center justify-center border border-dashed border-gray-400 p-10 cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all">
               {subiendoImagen ? (
                 <p className="text-black text-xs font-bold tracking-widest uppercase animate-pulse">Procesando imagen...</p>
