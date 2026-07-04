@@ -55,6 +55,10 @@ function AgregarPrenda() {
   const handleImagen = async (e) => {
     const archivo = e.target.files[0];
     if (!archivo) return;
+    if (archivo.size > 5 * 1024 * 1024) {
+      setError('La imagen no puede superar 5MB. Intenta con una más pequeña.');
+      return;
+    }
     setSubiendoImagen(true);
     setError('');
     try {
