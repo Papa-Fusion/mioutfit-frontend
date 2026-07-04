@@ -14,6 +14,11 @@ function Perfil() {
   const handleFoto = async (e) => {
     const archivo = e.target.files[0];
     if (!archivo) return;
+    // Limitar a 5MB máximo
+    if (archivo.size > 5 * 1024 * 1024) {
+      setError('La imagen no puede superar 5MB. Intenta con una más pequeña.');
+      return;
+    }
     setSubiendoFoto(true);
     setError('');
     
