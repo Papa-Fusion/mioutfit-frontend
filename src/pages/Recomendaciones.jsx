@@ -7,7 +7,6 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix para el ícono por defecto de Leaflet con Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -23,7 +22,6 @@ function getClimaInfo(temp) {
   return { label: 'Frío', icono: '🥶', categoria: 'Deportivo' };
 }
 
-// Componente que escucha los clics en el mapa
 function MapClickHandler({ onUbicacionSeleccionada }) {
   useMapEvents({
     click(e) {
@@ -37,13 +35,32 @@ function Recomendaciones() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [recomendaciones, setRecomendaciones] = useState([]);
+  const [combinaciones, setCombinaciones] = useState([]);
   const [clima, setClima] = useState(null);
   const [ciudad, setCiudad] = useState('');
   const [cargando, setCargando] = useState(true);
   const [cargandoMapa, setCargandoMapa] = useState(false);
+  const [cargandoCombinaciones, setCargandoCombinaciones] = useState(false);
   const [error, setError] = useState('');
-  const [coordenadas, setCoordenadas] = useState(null); // { lat, lon }
+  const [coordenadas, setCoordenadas] = useState(null);
   const [mostrarMapa, setMostrarMapa] = useState(false);
+
+  const obtenerCombinaciones = useCallback(async (climaLabel) => {
+    setCargandoCombinaciones(true);
+    try {
+      const res = await fetch(apiUrl(`/api/recomendaciones/combinar?clima=${encodeURIComponent(climaLabel)}`), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const parsed = JSON.parse(data.combinaciones);
+      setCombinaciones(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setCombinaciones([]);
+    } finally {
+      setCargandoCombinaciones(false);
+    }
+  }, [token]);
 
   const obtenerClima = useCallback(async (lat, lon) => {
     setCargandoMapa(true);
@@ -70,6 +87,9 @@ function Recomendaciones() {
         );
         setRecomendaciones(filtrados.length > 0 ? filtrados : outfitsData.slice(0, 3));
       }
+
+      await obtenerCombinaciones(`${infoClima.label} (${Math.round(temp)}°C)`);
+
     } catch {
       setError('No pudimos obtener el clima para esa ubicación.');
     } finally {
@@ -77,9 +97,8 @@ function Recomendaciones() {
       setCargando(false);
       setMostrarMapa(false);
     }
-  }, [token]);
+  }, [token, obtenerCombinaciones]);
 
-  // Carga inicial con geolocalización
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -88,7 +107,6 @@ function Recomendaciones() {
         obtenerClima(lat, lon);
       },
       () => {
-        // Si no hay geolocalización, usar coordenadas por defecto (centro del mundo)
         setCoordenadas({ lat: 4.5709, lon: -74.2973 });
         setError('Activa la ubicación o selecciona un lugar en el mapa.');
         setCargando(false);
@@ -120,9 +138,7 @@ function Recomendaciones() {
             <div>
               <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Ubicación actual</p>
               <h2 className="text-3xl font-serif-moda uppercase tracking-widest">
-                {cargandoMapa ? (
-                  <span className="animate-pulse text-gray-400">Cargando...</span>
-                ) : ciudad}
+                {cargandoMapa ? <span className="animate-pulse text-gray-400">Cargando...</span> : ciudad}
               </h2>
             </div>
             <div className="text-center md:text-right mt-6 md:mt-0 border-t md:border-t-0 md:border-l border-gray-800 pt-6 md:pt-0 md:pl-10">
@@ -137,7 +153,7 @@ function Recomendaciones() {
           </div>
         )}
 
-        {/* Botón para mostrar/ocultar mapa */}
+        {/* Botón mapa */}
         {!cargando && (
           <button
             onClick={() => setMostrarMapa(p => !p)}
@@ -184,7 +200,76 @@ function Recomendaciones() {
           </div>
         )}
 
-        {/* Grid de Recomendaciones */}
+        {/* SECCIÓN GEMINI: Combinaciones sugeridas */}
+        {!cargando && clima && (
+          <div className="mb-12">
+            <div className="flex items-center justify-between border-b border-gray-200 pb-3 mb-6">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">
+                ✦ Combina tus prendas
+              </h3>
+              <span className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">
+                Sugerido por IA
+              </span>
+            </div>
+
+            {cargandoCombinaciones ? (
+              <div className="bg-gray-50 border border-gray-100 p-8 text-center">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 animate-pulse">
+                  Analizando tu armario...
+                </p>
+              </div>
+            ) : combinaciones.length === 0 ? (
+              <div className="bg-gray-50 border border-gray-100 p-8 text-center">
+                <p className="text-xs text-gray-400 uppercase tracking-widest">
+                  Agrega más prendas para recibir sugerencias de combinación.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {combinaciones.map((combo, index) => (
+                  <div key={index} className="bg-white border border-gray-200 p-5 hover:border-gray-400 transition-colors">
+                    <div className="mb-4 pb-3 border-b border-gray-100">
+                      <h4 className="font-bold text-gray-900 uppercase tracking-widest text-xs mb-1">
+                        {combo.nombre}
+                      </h4>
+                      <p className="text-[10px] text-gray-500 italic leading-relaxed">
+                        {combo.motivo}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-5">
+                      {combo.prendas?.map((prenda, i) => (
+                        <div key={i} className="flex flex-col items-center">
+                          <div className="w-16 h-16 bg-gray-50 border border-gray-100 flex items-center justify-center p-1">
+                            {prenda.imagenUrl ? (
+                              <img
+                                src={prenda.imagenUrl}
+                                alt={prenda.nombre}
+                                className="w-full h-full object-contain mix-blend-multiply"
+                              />
+                            ) : (
+                              <span className="text-gray-300 text-xs">📷</span>
+                            )}
+                          </div>
+                          <p className="text-[8px] text-gray-400 uppercase tracking-wide mt-1 w-16 truncate text-center">
+                            {prenda.tipo?.split('/')[0]?.trim() || prenda.nombre}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => navigate('/armar-outfit')}
+                      className="w-full border border-gray-300 text-gray-600 hover:border-black hover:text-black py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                    >
+                      + Guardar como look
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SECCIÓN: Looks guardados recomendados */}
         {!cargando && clima && !cargandoMapa && (
           <div>
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-6 border-b border-gray-200 pb-3">
@@ -235,6 +320,7 @@ function Recomendaciones() {
             )}
           </div>
         )}
+
       </div>
     </Layout>
   );
