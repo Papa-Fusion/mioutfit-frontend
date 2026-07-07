@@ -14,6 +14,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+const CATEGORIAS = ['Casual', 'Formal', 'Elegante', 'Deportivo', 'Playero', 'Urbano', 'Bohemio', 'Ejecutivo', 'Noche/Fiesta'];
+
 function getClimaInfo(temp) {
   if (temp >= 28) return { label: 'Muy caluroso', icono: '☀️', categoria: 'Playero' };
   if (temp >= 22) return { label: 'Caluroso', icono: '🌤️', categoria: 'Casual' };
@@ -37,6 +39,7 @@ function Recomendaciones() {
   const [recomendaciones, setRecomendaciones] = useState([]);
   const [combinaciones, setCombinaciones] = useState([]);
   const [clima, setClima] = useState(null);
+  const [climaLabel, setClimaLabel] = useState('');
   const [ciudad, setCiudad] = useState('');
   const [cargando, setCargando] = useState(true);
   const [cargandoMapa, setCargandoMapa] = useState(false);
@@ -44,11 +47,15 @@ function Recomendaciones() {
   const [error, setError] = useState('');
   const [coordenadas, setCoordenadas] = useState(null);
   const [mostrarMapa, setMostrarMapa] = useState(false);
+  const [categoriaFiltro, setCategoriaFiltro] = useState('');
 
-  const obtenerCombinaciones = useCallback(async (climaLabel) => {
+  const obtenerCombinaciones = useCallback(async (climaLabelParam, categoria = '') => {
     setCargandoCombinaciones(true);
     try {
-      const res = await fetch(apiUrl(`/api/recomendaciones/combinar?clima=${encodeURIComponent(climaLabel)}`), {
+      const params = new URLSearchParams({ clima: climaLabelParam });
+      if (categoria) params.append('categoria', categoria);
+
+      const res = await fetch(apiUrl(`/api/recomendaciones/combinar?${params}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error();
@@ -75,7 +82,11 @@ function Recomendaciones() {
       setCiudad(dataClima.name);
       const temp = dataClima.main.temp;
       const infoClima = getClimaInfo(temp);
+      const label = `${infoClima.label} (${Math.round(temp)}°C)`;
       setClima({ ...infoClima, temp: Math.round(temp) });
+      setClimaLabel(label);
+      // Al cambiar ubicación, resetear el filtro de categoría
+      setCategoriaFiltro('');
 
       const resOutfits = await fetch(apiUrl('/api/outfits'), {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -88,7 +99,7 @@ function Recomendaciones() {
         setRecomendaciones(filtrados.length > 0 ? filtrados : outfitsData.slice(0, 3));
       }
 
-      await obtenerCombinaciones(`${infoClima.label} (${Math.round(temp)}°C)`);
+      await obtenerCombinaciones(label, '');
 
     } catch {
       setError('No pudimos obtener el clima para esa ubicación.');
@@ -113,6 +124,13 @@ function Recomendaciones() {
       }
     );
   }, [obtenerClima]);
+
+  // Rellamar a Gemini cuando el usuario cambia la categoría
+  useEffect(() => {
+    if (climaLabel) {
+      obtenerCombinaciones(climaLabel, categoriaFiltro);
+    }
+  }, [categoriaFiltro]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUbicacionSeleccionada = (lat, lon) => {
     setCoordenadas({ lat, lon });
@@ -212,6 +230,31 @@ function Recomendaciones() {
               </span>
             </div>
 
+            {/* Selector de categoría */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              <button
+                onClick={() => setCategoriaFiltro('')}
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest border transition-colors
+                  ${categoriaFiltro === ''
+                    ? 'bg-black text-white border-black'
+                    : 'border-gray-300 text-gray-600 hover:border-black hover:text-black'}`}
+              >
+                Todas
+              </button>
+              {CATEGORIAS.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoriaFiltro(cat)}
+                  className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest border transition-colors
+                    ${categoriaFiltro === cat
+                      ? 'bg-black text-white border-black'
+                      : 'border-gray-300 text-gray-600 hover:border-black hover:text-black'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
             {cargandoCombinaciones ? (
               <div className="bg-gray-50 border border-gray-100 p-8 text-center">
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400 animate-pulse">
@@ -221,7 +264,9 @@ function Recomendaciones() {
             ) : combinaciones.length === 0 ? (
               <div className="bg-gray-50 border border-gray-100 p-8 text-center">
                 <p className="text-xs text-gray-400 uppercase tracking-widest">
-                  Agrega más prendas para recibir sugerencias de combinación.
+                  {categoriaFiltro
+                    ? `No encontramos prendas de estilo ${categoriaFiltro} para combinar.`
+                    : 'Agrega más prendas para recibir sugerencias de combinación.'}
                 </p>
               </div>
             ) : (
