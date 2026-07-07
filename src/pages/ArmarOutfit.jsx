@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Maniqui from '../components/Maniqui';
 import { apiUrl } from '../config/api';
@@ -8,8 +8,11 @@ import { apiUrl } from '../config/api';
 function ArmarOutfit() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const prendasPreseleccionadas = location.state?.prendasPreseleccionadas ?? [];
+
   const [prendas, setPrendas] = useState([]);
-  const [seleccionadas, setSeleccionadas] = useState([]);
+  const [seleccionadas, setSeleccionadas] = useState(prendasPreseleccionadas);
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -85,6 +88,12 @@ function ArmarOutfit() {
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 uppercase tracking-tight font-serif-moda">Armar Look</h1>
         <p className="text-gray-500 text-sm mt-2 font-medium">Combina tus piezas para crear el conjunto perfecto</p>
       </div>
+
+      {prendasPreseleccionadas.length > 0 && (
+        <div className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-3 mb-6 flex items-center gap-2">
+          ✦ <span>{prendasPreseleccionadas.length} prendas preseleccionadas desde tus sugerencias — ponle nombre y guarda el look</span>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 text-xs font-bold uppercase tracking-widest px-4 py-3 mb-6">

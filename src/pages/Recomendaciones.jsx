@@ -302,7 +302,9 @@ function Recomendaciones() {
                       ))}
                     </div>
                     <button
-                      onClick={() => navigate('/armar-outfit')}
+                      onClick={() => navigate('/armar-outfit', {
+                        state: { prendasPreseleccionadas: combo.prendas.map(p => p.id) }
+                      })}
                       className="w-full border border-gray-300 text-gray-600 hover:border-black hover:text-black py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
                     >
                       + Guardar como look
