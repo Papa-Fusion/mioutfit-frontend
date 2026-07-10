@@ -4,6 +4,46 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { apiUrl } from '../config/api';
 
+// ─── Constantes compartidas entre modal y filtros ────────────────────────────
+
+const MARCAS_SUGERIDAS = [
+  'Adidas', 'Calvin Klein', 'Champion', 'Diesel', 'Fila',
+  'Gap', 'Guess', 'H&M', 'Lacoste', "Levi's",
+  'Louis Vuitton', 'Mango', 'Nike', 'Polo Ralph Lauren',
+  'Prada', 'Pull & Bear', 'Puma', 'Reebok', 'Reserved',
+  'Stradivarius', 'Tommy Hilfiger', 'Under Armour',
+  'Uniqlo', 'Versace', 'Zara', 'Sin marca'
+];
+
+const CATEGORIAS_GLOBALES = [
+  'Casual', 'Formal', 'Elegante', 'Deportivo', 'Playero',
+  'Urbano', 'Bohemio', 'Ejecutivo', 'Noche / Fiesta'
+];
+
+const TIPOS_MODAL = {
+  'Camiseta / Top':      { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Camisa / Blusa':      { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Suéter / Knitwear':   { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Chaqueta / Abrigo':   { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Pantalón / Jean':     { tallas: ['24', '26', '28', '30', '32', '34', '36', '38', '40', '42'] },
+  'Short / Bermuda':     { tallas: ['24', '26', '28', '30', '32', '34', '36', '38', '40', '42'] },
+  'Falda':               { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Vestido':             { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Enterizo / Jumpsuit': { tallas: ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'] },
+  'Zapatos / Calzado':   { tallas: ['33','34','35','36','37','38','39','40','41','42','43','44','45'] },
+  'Accesorios / Bolsos': { tallas: ['Talla única'] },
+};
+
+const GRUPOS_MODAL = {
+  'SUPERIORES':    ['Camiseta / Top', 'Camisa / Blusa', 'Suéter / Knitwear', 'Chaqueta / Abrigo'],
+  'INFERIORES':    ['Pantalón / Jean', 'Short / Bermuda', 'Falda'],
+  'CUERPO ENTERO': ['Vestido', 'Enterizo / Jumpsuit'],
+  'CALZADO':       ['Zapatos / Calzado'],
+  'COMPLEMENTOS':  ['Accesorios / Bolsos'],
+};
+
+// ─── PrendaCard ──────────────────────────────────────────────────────────────
+
 function PrendaCard({ prenda, onEliminar, onEditar, onUsar }) {
   return (
     <div className="bg-white overflow-hidden border border-gray-200 group transition-all hover:border-gray-400">
@@ -13,18 +53,18 @@ function PrendaCard({ prenda, onEliminar, onEditar, onUsar }) {
           alt={prenda.nombre}
           className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
         />
-        {/* Botones de acción flotantes */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Botones: siempre visibles en mobile, solo en hover en desktop */}
+        <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEditar(prenda)}
-            className="bg-white/90 backdrop-blur text-black p-2 rounded-full border border-gray-200 hover:bg-black hover:text-white transition-colors text-xs"
+            className="bg-white/90 backdrop-blur text-black p-2 rounded-full border border-gray-200 hover:bg-black hover:text-white transition-colors text-xs shadow-sm"
             title="Editar"
           >
             ✏️
           </button>
           <button
             onClick={() => onEliminar(prenda.id)}
-            className="bg-white/90 backdrop-blur text-red-600 p-2 rounded-full border border-gray-200 hover:bg-red-600 hover:text-white transition-colors text-xs"
+            className="bg-white/90 backdrop-blur text-red-600 p-2 rounded-full border border-gray-200 hover:bg-red-600 hover:text-white transition-colors text-xs shadow-sm"
             title="Eliminar"
           >
             ✕
@@ -44,6 +84,9 @@ function PrendaCard({ prenda, onEliminar, onEditar, onUsar }) {
         {prenda.color && (
           <p className="text-xs text-gray-500 mb-1">{prenda.color} · Talla {prenda.talla}</p>
         )}
+        {prenda.marca && (
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">{prenda.marca}</p>
+        )}
         {prenda.ultimoUso && (
           <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-4">
             Último uso: {new Date(prenda.ultimoUso).toLocaleDateString('es-ES', {
@@ -62,39 +105,14 @@ function PrendaCard({ prenda, onEliminar, onEditar, onUsar }) {
   );
 }
 
+// ─── ModalEditar ─────────────────────────────────────────────────────────────
+
 function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
   const [form, setForm] = useState({ ...prenda });
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const [cargando, setCargando] = useState(false);
 
-  const TIPOS = {
-    'Camiseta / Camisa': {
-      categorias: ['Casual', 'Formal', 'Elegante'],
-      tallas: ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-    },
-    'Pantalón / Jean': {
-      categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo'],
-      tallas: ['28', '30', '32', '34', '36', '38', '40']
-    },
-    'Zapatos / Calzado': {
-      categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo', 'Playero'],
-      tallas: ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44']
-    },
-    'Vestido / Falda': {
-      categorias: ['Casual', 'Formal', 'Elegante', 'Playero'],
-      tallas: ['XS', 'S', 'M', 'L', 'XL']
-    },
-    'Chaqueta / Abrigo': {
-      categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo'],
-      tallas: ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-    },
-    'Accesorio': {
-      categorias: ['Casual', 'Formal', 'Elegante', 'Deportivo'],
-      tallas: ['Talla única']
-    }
-  };
-
-  const tipoSeleccionado = TIPOS[form.tipo];
+  const tipoSeleccionado = TIPOS_MODAL[form.tipo];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -108,6 +126,10 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
   const handleImagen = async (e) => {
     const archivo = e.target.files[0];
     if (!archivo) return;
+    if (archivo.size > 5 * 1024 * 1024) {
+      alert('La imagen no puede superar 5MB.');
+      return;
+    }
     setSubiendoImagen(true);
     try {
       const formData = new FormData();
@@ -116,7 +138,7 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
         method: 'POST',
         body: formData
       });
-      if (!res.ok) throw new Error('Error al procesar imagen');
+      if (!res.ok) throw new Error();
       const data = await res.json();
       setForm(prev => ({ ...prev, imagenUrl: data.secure_url }));
     } catch {
@@ -147,51 +169,58 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-none border border-gray-200 w-full max-w-md p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-8 border-b border-gray-100 pb-4">
+        <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
           <h2 className="text-xl font-bold text-gray-900 uppercase tracking-widest">Editar prenda</h2>
           <button onClick={onCerrar} className="text-gray-400 hover:text-black text-2xl transition-colors">✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* Tipo */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Tipo de prenda</label>
             <select
-              name="tipo" value={form.tipo || ''} onChange={handleChange}
+              name="tipo" value={form.tipo || ''} onChange={handleChange} required
               className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black bg-transparent"
             >
               <option value="">Selecciona el tipo</option>
-              {Object.keys(TIPOS).map(t => (
-                <option key={t} value={t}>{t}</option>
+              {Object.entries(GRUPOS_MODAL).map(([grupo, tipos]) => (
+                <optgroup key={grupo} label={grupo}>
+                  {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+                </optgroup>
               ))}
             </select>
           </div>
 
+          {/* Nombre */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Nombre</label>
             <input
-              type="text" name="nombre" value={form.nombre} onChange={handleChange} required
+              type="text" name="nombre" value={form.nombre || ''} onChange={handleChange} required
               className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
             />
           </div>
 
+          {/* Categoría */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Categoría</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Estilo / Categoría</label>
             <select
               name="categoria" value={form.categoria || ''} onChange={handleChange} required disabled={!tipoSeleccionado}
               className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black disabled:opacity-50 disabled:bg-gray-50"
             >
               <option value="">Selecciona</option>
-              {tipoSeleccionado?.categorias.map(c => (
+              {CATEGORIAS_GLOBALES.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
 
+          {/* Color + Talla */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Color</label>
               <input
-                type="text" name="color" value={form.color || ''} onChange={handleChange}
+                type="text" name="color" value={form.color || ''} onChange={handleChange} required
                 placeholder="Ej. Negro"
                 className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
               />
@@ -210,11 +239,32 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
             </div>
           </div>
 
+          {/* Marca */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">
+              Marca <span className="text-gray-400 normal-case tracking-normal font-normal">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              name="marca"
+              value={form.marca || ''}
+              onChange={handleChange}
+              placeholder="Ej. Nike, Zara, Sin marca..."
+              list="marcas-list-modal"
+              autoComplete="off"
+              className="w-full px-4 py-3 rounded-none border border-gray-300 text-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+            />
+            <datalist id="marcas-list-modal">
+              {MARCAS_SUGERIDAS.map(m => <option key={m} value={m} />)}
+            </datalist>
+          </div>
+
+          {/* Fotografía */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Fotografía</label>
             <label className="flex flex-col items-center justify-center border border-dashed border-gray-300 cursor-pointer p-6 hover:border-black transition-colors">
               {subiendoImagen ? (
-                <p className="text-black text-xs font-bold tracking-widest uppercase">Subiendo...</p>
+                <p className="text-black text-xs font-bold tracking-widest uppercase animate-pulse">Procesando...</p>
               ) : form.imagenUrl ? (
                 <img src={form.imagenUrl} alt="Vista previa" className="w-full h-32 object-contain" />
               ) : (
@@ -222,8 +272,14 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
               )}
               <input type="file" accept="image/*" onChange={handleImagen} className="hidden" />
             </label>
+            {form.imagenUrl && (
+              <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide text-center">
+                Toca para cambiar la foto
+              </p>
+            )}
           </div>
 
+          {/* Acciones */}
           <div className="flex gap-4 pt-4 border-t border-gray-100">
             <button
               type="button" onClick={onCerrar}
@@ -232,7 +288,7 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
               Cancelar
             </button>
             <button
-              type="submit" disabled={cargando}
+              type="submit" disabled={cargando || subiendoImagen}
               className="flex-1 py-3 bg-black hover:bg-gray-900 text-white text-xs font-bold uppercase tracking-widest disabled:opacity-60 transition-colors"
             >
               {cargando ? 'Guardando...' : 'Guardar'}
@@ -243,6 +299,8 @@ function ModalEditar({ prenda, token, onGuardado, onCerrar }) {
     </div>
   );
 }
+
+// ─── Home ────────────────────────────────────────────────────────────────────
 
 function Home() {
   const { token } = useAuth();
@@ -328,9 +386,8 @@ function Home() {
         </button>
       </div>
 
-      {/* Filtros — búsqueda siempre visible, dropdowns colapsables en mobile */}
+      {/* Filtros */}
       <div className="mb-8 space-y-3">
-        {/* Fila 1: búsqueda + botón filtros (mobile) */}
         <div className="flex gap-3">
           <input
             type="text"
@@ -339,7 +396,6 @@ function Home() {
             onChange={e => setFiltroBusqueda(e.target.value)}
             className="flex-1 px-4 py-3 bg-transparent border-b border-gray-300 text-sm focus:outline-none focus:border-black placeholder-gray-400 transition-colors"
           />
-          {/* Botón "Filtros" solo en mobile */}
           <button
             onClick={() => setFiltrosExpandidos(p => !p)}
             className={`sm:hidden flex items-center gap-2 px-4 py-2 border text-xs font-bold uppercase tracking-widest transition-colors ${
@@ -350,15 +406,14 @@ function Home() {
           </button>
         </div>
 
-        {/* Fila 2: dropdowns — siempre visibles en sm+, colapsables en mobile */}
         <div className={`${filtrosExpandidos ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row gap-3`}>
           <select
             value={filtroTipo}
             onChange={e => setFiltroTipo(e.target.value)}
             className="flex-1 px-4 py-3 bg-transparent border-b border-gray-300 text-sm focus:outline-none focus:border-black transition-colors cursor-pointer"
           >
-            <option value="">Todos los estilos</option>
-            {['Camiseta / Camisa', 'Pantalón / Jean', 'Zapatos / Calzado', 'Vestido / Falda', 'Chaqueta / Abrigo', 'Accesorio'].map(t => (
+            <option value="">Todos los tipos</option>
+            {Object.values(GRUPOS_MODAL).flat().map(t => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
@@ -368,7 +423,7 @@ function Home() {
             className="flex-1 px-4 py-3 bg-transparent border-b border-gray-300 text-sm focus:outline-none focus:border-black transition-colors cursor-pointer"
           >
             <option value="">Todas las categorías</option>
-            {['Casual', 'Formal', 'Deportivo', 'Elegante', 'Playero'].map(c => (
+            {CATEGORIAS_GLOBALES.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -408,7 +463,6 @@ function Home() {
           <p className="text-gray-500 text-sm">No encontramos piezas con esos criterios.</p>
         </div>
       ) : (
-        /* Grid: 2 col en mobile, 3 en md, 4 en lg */
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10">
           {prendasFiltradas.map(prenda => (
             <PrendaCard
