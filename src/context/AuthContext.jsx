@@ -9,6 +9,18 @@ export function AuthProvider({ children }) {
     JSON.parse(localStorage.getItem('usuario') || 'null')
   );
 
+  const _finalizarLogin = async (jwtToken) => {
+    localStorage.setItem('token', jwtToken);
+    setToken(jwtToken);
+
+    const perfilRes = await fetch(`${API_URL}/api/perfil`, {
+      headers: { 'Authorization': `Bearer ${jwtToken}` }
+    });
+    const perfil = await perfilRes.json();
+    localStorage.setItem('usuario', JSON.stringify(perfil));
+    setUsuario(perfil);
+  };
+
   const login = async (email, password) => {
     const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
@@ -19,16 +31,20 @@ export function AuthProvider({ children }) {
     if (!response.ok) throw new Error('Credenciales incorrectas');
 
     const data = await response.json();
-    localStorage.setItem('token', data.token);
-    setToken(data.token);
+    await _finalizarLogin(data.token);
+  };
 
-    // Cargar perfil del usuario
-    const perfilRes = await fetch(`${API_URL}/api/perfil`, {
-      headers: { 'Authorization': `Bearer ${data.token}` }
+  const loginConGoogle = async (idToken) => {
+    const response = await fetch(`${API_URL}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken })
     });
-    const perfil = await perfilRes.json();
-    localStorage.setItem('usuario', JSON.stringify(perfil));
-    setUsuario(perfil);
+
+    if (!response.ok) throw new Error('Error al iniciar sesión con Google');
+
+    const data = await response.json();
+    await _finalizarLogin(data.token);
   };
 
   const logout = () => {
@@ -44,7 +60,6 @@ export function AuthProvider({ children }) {
     setUsuario(actualizado);
   };
 
-  // Escuchar un evento global personalizado para desautenticar si el token expira
   useEffect(() => {
     const manejarSesionExpirada = () => {
       console.warn("La sesión ha expirado o es inválida. Cerrando sesión...");
@@ -58,7 +73,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ token, usuario, login, logout, actualizarUsuario }}>
+    <AuthContext.Provider value={{ token, usuario, login, loginConGoogle, logout, actualizarUsuario }}>
       {children}
     </AuthContext.Provider>
   );

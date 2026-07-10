@@ -1,14 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../config/api';
 
 function Registro() {
   const navigate = useNavigate();
+  const { loginConGoogle } = useAuth();
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [cargandoGoogle, setCargandoGoogle] = useState(false);
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: handleGoogleCallback,
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById('google-btn-registro'),
+        {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+          text: 'signup_with',
+          shape: 'rectangular',
+          logo_alignment: 'left',
+          width: '100%',
+        }
+      );
+    };
+    document.body.appendChild(script);
+    return () => document.body.removeChild(script);
+  }, []);
+
+  const handleGoogleCallback = async (response) => {
+    setCargandoGoogle(true);
+    setError('');
+    try {
+      await loginConGoogle(response.credential);
+      navigate('/home');
+    } catch {
+      setError('No se pudo registrar con Google. Intenta de nuevo.');
+    } finally {
+      setCargandoGoogle(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +75,7 @@ function Registro() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 font-sans">
       <div className="w-full max-w-md bg-white border border-gray-200 p-8 md:p-10 shadow-sm">
-        
+
         {/* Cabecera / Marca */}
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-black uppercase tracking-widest font-serif-moda">
@@ -49,6 +92,24 @@ function Registro() {
             {error}
           </div>
         )}
+
+        {/* Botón Google */}
+        <div className="mb-6">
+          {cargandoGoogle ? (
+            <div className="w-full border border-gray-300 py-3 flex items-center justify-center gap-3 text-xs font-bold uppercase tracking-widest text-gray-500">
+              <span className="animate-pulse">Conectando con Google...</span>
+            </div>
+          ) : (
+            <div id="google-btn-registro" className="w-full flex justify-center" />
+          )}
+        </div>
+
+        {/* Separador */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex-1 border-t border-gray-200" />
+          <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">o</span>
+          <div className="flex-1 border-t border-gray-200" />
+        </div>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-6">
